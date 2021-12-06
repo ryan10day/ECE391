@@ -1,0 +1,82 @@
+1 ) For the paging.c code, the inline assembly was failing because I forgot to switch the order of the 
+    destination registers and source registers in the code from OSdev.  Also, I didn't have the 
+    OR mask operands set as immediate values, so incorrect values were populating the registers. 
+    This meant that paging wasn't being enabled.  This bug took roughly 20 minutes to fix.
+
+2) Another issue with the paging code was where a boot loop would occur whenever I attemplted to enable 
+   paging by setting the 31 bit in CR0.  I fixed this by moving the inline assembly code to after the 
+   page directory/page table entry initialization code.  The page_directory was being modified in the
+   initialization code which emant that its value was garbage after a certain point.
+   This bug took roughly an hour and 15 minutes to fix. 
+
+3) For PIC initialization, I had a problem with interrupt control. My interrupt was not enabled correctly. 
+   It turns out that I used wrong bit-masking method. I have to use "master_mask |= (1<<irq_num)"
+   for masking master pic and "slave_mask |= (1<<(irq_num-PIC_WIDTH))" for masking slaves
+
+4) One issue happened during implementing keyboard is that each time you type one key, the screen will show
+   two characters. We have this problem because during our typing, keyboard will actually has two interrupt:
+   one for pressing, one for release, and we only considered pressing at that time. The way we solve that problem 
+   is to add a 0x80 mask to check whether we have press scan code or release scan code.
+
+5) For assembly linkage, one problem I encountered is that since I want to call the do_irq function in the assembly
+   file, I include the idt.h file which defined the do_irq function. It turns out will many compilling errors.
+   The solution is that instead include idt.h file, make do_irq a extern function.
+
+6) Another issue we encountered during implementing IDT is boot looping, the results turn out to be that 
+   we did not include lidt idt_desc_ptr in boot.S file, which help us load IDT.
+
+7) when running sudo make, one error might be debug.sh does not exist. Running dos2unix debug.sh solves the issue.
+
+8) when implimenting RTC_init (RTC.c), I swapped the source and destination register, as osdev uses intel syntax while
+   we use at&t format.
+
+9)The RTC interrupt handler will only trigger once. That is because you need to read from register c every time the 
+   interrupt is raised, otherwise the RTC will not continue to raise interrupt. 
+
+10) slave interrypts are not raised. The issue is that Although i enabled the interrupt mask on the slave pic, I 
+   needed to raise the interrupt mask on the master pic for irq2 (the cascading slave pic).
+
+11) calling the keyboard handler also triggers the RTC handler.  The switch case for do_irq needed break; after 
+   each interrupt case.
+
+12) Issue where I was bootlooping due to calling the file system init function in kernel.c.  The issue is that I was 
+   trying to access an invalid memory address when setting the start of the file system address.  The solution was 
+   to initialize paging after initializing the file system.  This bug took me about an hour to fix.
+   
+13) Didn't allocate memory for dentry parameters for read_dentry functions so was getting a page fault.  This took me
+    45 minutes to fix.
+
+14) Only the first few file names were appearing in memory.  The problem was that when I was looping through the directory
+    entries in read_dentry_by_name, I was incrementing by an increasing value instead of by 1.  This made it look like there
+    were missing dentries even though I was just jumping over them.  This bug took me about 30 minutes to fix.  
+
+15) instead of creating a extern variable keyboard_flag, we should use a extern volatile variable 
+
+16) We were getting an invalid opcode exception when trying to run halt, it turns out that this was because we were restoring the paging
+    incorrectly by setting a wrong base address for the 'parent' process.  We were accidentally overwriting the current page in physical memory
+    instead of reaching back for the previous 4MB block.  We fixed this bug in 1.5 hours. 
+
+17) We had a page fault error when running the execute function.  We needed to change the page directory index from 31 to 32 in order
+    to properly access the 128MB-132MB region in virtual memory.  This bug took about 30 minutes to fix.
+
+18) In the systemcall_linkage file, we were jumping to the jump table instead of calling the jump table which meant that incorrect arguments 
+    were being passed into the functions in the function table which lead to incorrect functionality occuring.  We fixed this bug in an hour. 
+
+19) When typing hello and then trying to enter a command, it would say "no command" because it was being interpreted as a command.  To fix this,
+    we added a check inside of the newline handler in the terminal driver to assess whether the display terminal was equal to the running terminal.
+    This bug took roughly 30 minutes to fix.
+
+20) We were experiencing page faults when attempting to switch terminals after setting up a scheudling attempt.  The issue was that we were using display_terminal
+    instead of running_terminal inside of execute and halt.
+
+21) We had a very persistent bug in which artifacts from a running process in one terminal would appear in another terminal upon a terminal switch.
+    The running process was running correctly in the background, but pressing alt and the function keys resulted in snap shots of the running process
+    being copied into the displayed terminals.  Even though we were assigning the video_mem pointer to the running terminal's video page, this value was
+    being stored inside of a temp variable in the keyboard handler so that video_mem could be assigned xb8000.  However, we were forgetting to restore
+    the video_mem pointer to its correct value before returning from keyboard.  This meant that the contents of the background terminal were still being displayed
+    via the video page.  This bug took like 3 days to fix.
+
+22) Another bug we had was that the 391OS> symbol would be printed multiple times when switching between terminals while a background process was running.
+    We realized that when a terminal switch was occuring, the contents of the terminal buffer being swtiched to were being read and processed unnecessarily.
+    To fix this, we disabled interrupts inside of the newline handler in terminal read, so that the buffer commands would only be executed upon a deliberate
+    enter press.  This bug took 2 hours to fix.

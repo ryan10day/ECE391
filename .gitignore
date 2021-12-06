@@ -1,0 +1,17 @@
+mp[0-9]_code_*/
+student_dist*/
+fred_*
+.vscode/settings.json
+student-distrib/boot.o
+student-distrib/i8259.o
+student-distrib/idt.o
+student-distrib/kernel.o
+student-distrib/keyboard.o
+student-distrib/lib.o
+student-distrib/linkage.o
+student-distrib/Makefile.dep
+student-distrib/paging.o
+student-distrib/RTC.o
+student-distrib/tests.o
+student-distrib/x86_desc.o
+student-distrib/mp3.img
